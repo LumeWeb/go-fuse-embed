@@ -14,8 +14,9 @@ var _ gfs.NodeOnAdder = (*FuseEmbed)(nil)
 
 type FuseEmbed struct {
 	gfs.Inode
-	fs     *embed.FS
-	prefix string
+	fs       *embed.FS
+	prefix   string
+	chmodMap map[string]uint32
 }
 
 func (f *FuseEmbed) OnAdd(ctx context.Context) {
@@ -82,6 +83,12 @@ func (f *FuseEmbed) OnAdd(ctx context.Context) {
 			Data: content,
 		}
 
+		// Set the file mode
+		mode, ok := f.chmodMap[path]
+		if ok {
+			embedder.Attr.Mode = mode
+		}
+
 		// Create the file inode
 		child := p.NewPersistentInode(ctx, embedder, gfs.StableAttr{})
 
@@ -96,9 +103,15 @@ func (f *FuseEmbed) OnAdd(ctx context.Context) {
 	}
 }
 
+func (f *FuseEmbed) ChmodFile(path string, mode uint32) {
+	path = strings.TrimLeft(path, "/")
+	f.chmodMap[path] = mode
+}
+
 func New(fs *embed.FS, prefix string) *FuseEmbed {
 	return &FuseEmbed{
-		fs:     fs,
-		prefix: prefix,
+		fs:       fs,
+		prefix:   prefix,
+		chmodMap: make(map[string]uint32),
 	}
 }
